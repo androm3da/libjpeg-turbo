@@ -91,6 +91,9 @@ init_simd(j_common_ptr cinfo)
 #elif SIMD_ARCHITECTURE == MIPS64
   if (!GETENV_S(env, 2, "JSIMD_FORCEMMI") && !strcmp(env, "1"))
     simd_support = JSIMD_MMI;
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (!GETENV_S(env, 2, "JSIMD_FORCEHVX") && !strcmp(env, "1"))
+    simd_support = JSIMD_HVX;
 #endif
   if (!GETENV_S(env, 2, "JSIMD_FORCENONE") && !strcmp(env, "1"))
     simd_support = 0;
@@ -159,6 +162,11 @@ jsimd_set_rgb_ycc(j_compress_ptr cinfo)
     SET_SIMD_EXTRGB_COLOR_CONVERTER(ycc, mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    SET_SIMD_EXTRGB_COLOR_CONVERTER(ycc, hvx);
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -215,6 +223,11 @@ jsimd_set_rgb_gray(j_compress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     SET_SIMD_EXTRGB_COLOR_CONVERTER(gray, mmi);
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    SET_SIMD_EXTRGB_COLOR_CONVERTER(gray, hvx);
+    return JSIMD_HVX;
   }
 #endif
 
@@ -281,6 +294,11 @@ jsimd_set_ycc_rgb(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     SET_SIMD_EXTRGB_COLOR_DECONVERTER(mmi);
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    SET_SIMD_EXTRGB_COLOR_DECONVERTER(hvx);
+    return JSIMD_HVX;
   }
 #endif
 
@@ -363,6 +381,11 @@ jsimd_set_h2v1_downsample(j_compress_ptr cinfo)
     cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -428,6 +451,11 @@ jsimd_set_h2v2_downsample(j_compress_ptr cinfo)
     cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -488,6 +516,11 @@ jsimd_set_h2v1_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -545,6 +578,11 @@ jsimd_set_h2v2_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_RVV) {
     cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_rvv;
     return JSIMD_RVV;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_hvx;
+    return JSIMD_HVX;
   }
 #endif
 
@@ -611,6 +649,11 @@ jsimd_set_h2v1_fancy_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_fancy_upsample_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_fancy_upsample_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -676,6 +719,11 @@ jsimd_set_h2v2_fancy_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_fancy_upsample_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_fancy_upsample_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -692,7 +740,8 @@ jsimd_h2v2_fancy_upsample(j_decompress_ptr cinfo, jpeg_component_info *compptr,
 }
 
 
-#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM
+#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM || \
+    SIMD_ARCHITECTURE == HEXAGON
 
 HIDDEN unsigned int
 jsimd_set_h1v2_fancy_upsample(j_decompress_ptr cinfo)
@@ -706,10 +755,17 @@ jsimd_set_h1v2_fancy_upsample(j_decompress_ptr cinfo)
   if (!cinfo->upsample)
     return JSIMD_NONE;
 
+#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM
   if (cinfo->master->simd_support & JSIMD_NEON) {
     cinfo->upsample->h1v2_upsample_simd = jsimd_h1v2_fancy_upsample_neon;
     return JSIMD_NEON;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->upsample->h1v2_upsample_simd = jsimd_h1v2_fancy_upsample_hvx;
+    return JSIMD_HVX;
+  }
+#endif
 
   return JSIMD_NONE;
 }
@@ -724,7 +780,7 @@ jsimd_h1v2_fancy_upsample(j_decompress_ptr cinfo, jpeg_component_info *compptr,
                                       output_data_ptr);
 }
 
-#endif
+#endif /* ARM64 || ARM || HEXAGON */
 
 
 HIDDEN unsigned int
@@ -775,6 +831,11 @@ jsimd_set_h2v1_merged_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, mmi);
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, hvx);
+    return JSIMD_HVX;
   }
 #endif
 
@@ -840,6 +901,11 @@ jsimd_set_h2v2_merged_upsample(j_decompress_ptr cinfo)
     SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, hvx);
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -896,6 +962,11 @@ jsimd_set_convsamp(j_compress_ptr cinfo, convsamp_method_ptr *method)
   if (cinfo->master->simd_support & JSIMD_RVV) {
     *method = jsimd_convsamp_rvv;
     return JSIMD_RVV;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    *method = jsimd_convsamp_hvx;
+    return JSIMD_HVX;
   }
 #endif
 
@@ -982,6 +1053,11 @@ jsimd_set_fdct_islow(j_compress_ptr cinfo, forward_DCT_method_ptr *method)
     *method = jsimd_fdct_islow_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    *method = jsimd_fdct_islow_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1027,6 +1103,11 @@ jsimd_set_fdct_ifast(j_compress_ptr cinfo, forward_DCT_method_ptr *method)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     *method = jsimd_fdct_ifast_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    *method = jsimd_fdct_ifast_hvx;
+    return JSIMD_HVX;
   }
 #endif
 
@@ -1104,6 +1185,11 @@ jsimd_set_quantize(j_compress_ptr cinfo, quantize_method_ptr *method)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     *method = jsimd_quantize_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    *method = jsimd_quantize_hvx;
+    return JSIMD_HVX;
   }
 #endif
 
@@ -1196,6 +1282,11 @@ jsimd_set_idct_islow(j_decompress_ptr cinfo)
     cinfo->idct->idct_simd = jsimd_idct_islow_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->idct->idct_simd = jsimd_idct_islow_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1261,6 +1352,11 @@ jsimd_set_idct_ifast(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     cinfo->idct->idct_simd = jsimd_idct_ifast_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->idct->idct_simd = jsimd_idct_ifast_hvx;
+    return JSIMD_HVX;
   }
 #endif
 
@@ -1362,6 +1458,11 @@ jsimd_set_idct_2x2(j_decompress_ptr cinfo)
     cinfo->idct->idct_2x2_simd = jsimd_idct_2x2_neon;
     return JSIMD_NEON;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->idct->idct_2x2_simd = jsimd_idct_2x2_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1410,6 +1511,11 @@ jsimd_set_idct_4x4(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_NEON) {
     cinfo->idct->idct_4x4_simd = jsimd_idct_4x4_neon;
     return JSIMD_NEON;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if (cinfo->master->simd_support & JSIMD_HVX) {
+    cinfo->idct->idct_4x4_simd = jsimd_idct_4x4_hvx;
+    return JSIMD_HVX;
   }
 #endif
 
@@ -1479,6 +1585,12 @@ jsimd_set_encode_mcu_AC_first_prepare(j_compress_ptr cinfo,
     *method = jsimd_encode_mcu_AC_first_prepare_neon;
     return JSIMD_NEON;
   }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if ((cinfo->master->simd_support & JSIMD_HVX) &&
+      cinfo->master->simd_huffman) {
+    *method = jsimd_encode_mcu_AC_first_prepare_hvx;
+    return JSIMD_HVX;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1505,6 +1617,12 @@ jsimd_set_encode_mcu_AC_refine_prepare(j_compress_ptr cinfo,
       cinfo->master->simd_huffman) {
     *method = jsimd_encode_mcu_AC_refine_prepare_neon;
     return JSIMD_NEON;
+  }
+#elif SIMD_ARCHITECTURE == HEXAGON
+  if ((cinfo->master->simd_support & JSIMD_HVX) &&
+      cinfo->master->simd_huffman) {
+    *method = jsimd_encode_mcu_AC_refine_prepare_hvx;
+    return JSIMD_HVX;
   }
 #endif
 

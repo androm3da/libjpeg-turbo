@@ -556,6 +556,50 @@ endif()
 
 
 ###############################################################################
+# Hexagon HVX (Intrinsics)
+###############################################################################
+
+elseif(CPU_TYPE STREQUAL "hexagon")
+
+set(SIMD_ARCHITECTURE HEXAGON PARENT_SCOPE)
+
+set(HVX_ARCH 65 CACHE STRING
+  "HVX architecture version (65, 66, 68, 69, 73, ...)")
+
+set(CMAKE_REQUIRED_FLAGS "-mhvx -mhvx-length=128b -mv${HVX_ARCH}")
+
+check_c_source_compiles("
+  #include <hexagon_types.h>
+  #include <hvx_hexagon_protos.h>
+  int main(void) {
+    HVX_Vector v = Q6_V_vzero();
+    return 0;
+  }" HAVE_HVX)
+
+unset(CMAKE_REQUIRED_FLAGS)
+
+if(NOT HAVE_HVX)
+  simd_fail("SIMD extensions not available for this CPU")
+  return()
+endif()
+
+set(SIMD_SOURCES hexagon/jccolor-hvx.c hexagon/jcgray-hvx.c
+  hexagon/jcsample-hvx.c hexagon/jdcolor-hvx.c hexagon/jdmerge-hvx.c
+  hexagon/jdsample-hvx.c hexagon/jfdctfst-hvx.c hexagon/jfdctint-hvx.c
+  hexagon/jidctfst-hvx.c hexagon/jidctint-hvx.c hexagon/jidctred-hvx.c
+  hexagon/jquanti-hvx.c hexagon/jcphuff-hvx.c)
+
+set_source_files_properties(${SIMD_SOURCES} PROPERTIES
+  COMPILE_FLAGS "-mhvx -mhvx-length=128b -mv${HVX_ARCH}")
+
+add_library(simd OBJECT ${SIMD_SOURCES} hexagon/jsimdcpu.c jsimd.c)
+
+if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
+  set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
+endif()
+
+
+###############################################################################
 # None
 ###############################################################################
 
