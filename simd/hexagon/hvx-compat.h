@@ -25,4 +25,17 @@
 #define vmem(A)   *((HVX_Vector *)(A))
 #define vmemu(A)  *((HVX_UVector *)(A))
 
+/* Prefetch a contiguous buffer into L2 cache (non-blocking hint).
+ * Step size is __GCC_DESTRUCTIVE_SIZE (hardware destructive
+ * interference size), which matches the L1 cache line on Hexagon.
+ */
+static __inline void
+hvx_prefetch_row(const void *addr, int len)
+{
+  const char *p = (const char *)addr;
+  int i;
+  for (i = 0; i < len; i += __GCC_DESTRUCTIVE_SIZE)
+    __builtin_prefetch(p + i, 0, 0);
+}
+
 #endif /* HVX_COMPAT_H */

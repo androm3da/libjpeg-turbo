@@ -46,6 +46,11 @@ jsimd_h2v1_merged_upsample_hvx(JDIMENSION output_width,
   inptr2 = input_buf[2][in_row_group_ctr];
   outptr = output_buf[0];
 
+  /* Prefetch Y, Cb, Cr input data into L2 */
+  hvx_prefetch_row(inptr0, output_width);
+  hvx_prefetch_row(inptr1, (output_width + 1) / 2);
+  hvx_prefetch_row(inptr2, (output_width + 1) / 2);
+
   for (JDIMENSION col = 0; col < output_width / 2; col++) {
     int cb = inptr1[col] - 128;
     int cr = inptr2[col] - 128;
@@ -112,6 +117,12 @@ jsimd_h2v2_merged_upsample_hvx(JDIMENSION output_width,
   inptr2 = input_buf[2][in_row_group_ctr];
   outptr0 = output_buf[0];
   outptr1 = output_buf[1];
+
+  /* Prefetch Y (both rows), Cb, Cr input data into L2 */
+  hvx_prefetch_row(inptr0_0, output_width);
+  hvx_prefetch_row(inptr0_1, output_width);
+  hvx_prefetch_row(inptr1, (output_width + 1) / 2);
+  hvx_prefetch_row(inptr2, (output_width + 1) / 2);
 
   for (JDIMENSION col = 0; col < output_width / 2; col++) {
     int cb = inptr1[col] - 128;

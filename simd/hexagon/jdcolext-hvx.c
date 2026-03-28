@@ -51,6 +51,16 @@ jsimd_ycc_rgb_convert_hvx(JDIMENSION out_width,
     input_row++;
     outptr = *output_buf++;
 
+    /* Prefetch next Y, Cb, Cr input rows into L2 */
+    if (num_rows > 0) {
+      hvx_prefetch_row(input_buf[0][input_row],
+                        out_width);
+      hvx_prefetch_row(input_buf[1][input_row],
+                        out_width);
+      hvx_prefetch_row(input_buf[2][input_row],
+                        out_width);
+    }
+
     JDIMENSION col;
     JDIMENSION tail_start = out_width & ~(JDIMENSION)7;
 

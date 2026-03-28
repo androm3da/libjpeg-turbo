@@ -47,6 +47,11 @@ jsimd_rgb_ycc_convert_hvx(JDIMENSION image_width,
     outptr2 = output_buf[2][output_row];
     output_row++;
 
+    /* Prefetch next input row into L2 */
+    if (num_rows > 0)
+      hvx_prefetch_row(*input_buf,
+                        image_width * RGB_PIXELSIZE);
+
     JDIMENSION col;
     for (col = 0; col < image_width; col++) {
       unsigned int r = inptr[col * RGB_PIXELSIZE + RGB_RED];

@@ -29,6 +29,11 @@ jsimd_h2v1_upsample_hvx(int max_v_samp_factor,
     outptr = output_data_ptr[0][inrow];
     outend = output_width;
 
+    /* Prefetch next input row into L2 */
+    if (inrow + 1 < max_v_samp_factor)
+      hvx_prefetch_row(input_data[inrow + 1],
+                        output_width / 2);
+
     JDIMENSION outcol;
     for (outcol = 0; outcol < outend; outcol += 2) {
       invalue = *inptr++;
@@ -61,6 +66,11 @@ jsimd_h2v2_upsample_hvx(int max_v_samp_factor,
     inptr = input_data[inrow];
     outptr0 = output_data_ptr[0][outrow];
     outptr1 = output_data_ptr[0][outrow + 1];
+
+    /* Prefetch next input row into L2 */
+    if (outrow + 2 < max_v_samp_factor)
+      hvx_prefetch_row(input_data[inrow + 1],
+                        output_width / 2);
 
     for (outcol = 0; outcol < output_width; outcol += 2) {
       invalue = *inptr++;
@@ -101,6 +111,11 @@ jsimd_h2v1_fancy_upsample_hvx(
   for (inrow = 0; inrow < max_v_samp_factor; inrow++) {
     inptr = input_data[inrow];
     outptr = output_data_ptr[0][inrow];
+
+    /* Prefetch next input row into L2 */
+    if (inrow + 1 < max_v_samp_factor)
+      hvx_prefetch_row(input_data[inrow + 1],
+                        downsampled_width);
 
     /* Special case for first column */
     invalue = *inptr++;
@@ -149,6 +164,11 @@ jsimd_h2v2_fancy_upsample_hvx(
 
   inrow = outrow = 0;
   while (outrow < max_v_samp_factor) {
+    /* Prefetch next neighbor row into L2 */
+    if (outrow + 2 < max_v_samp_factor)
+      hvx_prefetch_row(input_data[inrow + 1],
+                        downsampled_width);
+
     for (v = 0; v < 2; v++) {
       inptr0 = input_data[inrow];
       if (v == 0)
@@ -212,6 +232,11 @@ jsimd_h1v2_fancy_upsample_hvx(
   inrow = 0;
   outrow = 0;
   while (outrow < max_v_samp_factor) {
+    /* Prefetch next neighbor row into L2 */
+    if (outrow + 2 < max_v_samp_factor)
+      hvx_prefetch_row(input_data[inrow + 1],
+                        downsampled_width);
+
     for (v = 0; v < 2; v++) {
       inptr0 = input_data[inrow];
       if (v == 0) {

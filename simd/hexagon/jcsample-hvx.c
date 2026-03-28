@@ -63,6 +63,12 @@ jsimd_h2v1_downsample_hvx(JDIMENSION image_width,
   for (row = 0; row < (int)v_samp_factor; row++) {
     outptr = output_data[row];
     inptr = input_data[row];
+
+    /* Prefetch next input row into L2 */
+    if (row + 1 < (int)v_samp_factor)
+      hvx_prefetch_row(input_data[row + 1],
+                        output_width * 2);
+
     bias = 0;  /* bias = 0,1,0,1,... for successive samples */
     for (outcol = 0; outcol < output_width; outcol++) {
       *outptr++ =
@@ -100,6 +106,15 @@ jsimd_h2v2_downsample_hvx(JDIMENSION image_width,
     outptr = output_data[outrow];
     inptr0 = input_data[inrow];
     inptr1 = input_data[inrow + 1];
+
+    /* Prefetch next pair of input rows into L2 */
+    if (outrow + 1 < (int)v_samp_factor) {
+      hvx_prefetch_row(input_data[inrow + 2],
+                        output_width * 2);
+      hvx_prefetch_row(input_data[inrow + 3],
+                        output_width * 2);
+    }
+
     bias = 1;  /* bias = 1,2,1,2,... for successive samples */
     for (outcol = 0; outcol < output_width; outcol++) {
       *outptr++ = (JSAMPLE)
