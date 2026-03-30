@@ -289,3 +289,44 @@ jobs:
           make -j$NUMCPUS --load-average=$NUMCPUS
           ctest -j$NUMCPUS
           popd
+  linux-hexagon:
+    if: ${{!contains(github.ref, 'refs/tags/')}}
+    runs-on: ubuntu-latest
+    env:
+      TOOLCHAIN_URL: https://artifacts.codelinaro.org/artifactory/codelinaro-toolchain-for-hexagon/22.1.0_/clang+llvm-22.1.0-cross-hexagon-unknown-linux-musl_x86_64-linux-musl.tar.zst
+      TOOLCHAIN_DIR: /opt/hexagon-toolchain
+      CTEST_OUTPUT_ON_FAILURE: 1
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Cache Hexagon toolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: /opt/hexagon-toolchain
+          key: hexagon-toolchain-22.1.0
+      - name: Install Hexagon toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y zstd
+          curl -fSL "$TOOLCHAIN_URL" -o /tmp/hexagon-tc.tar.zst
+          sudo mkdir -p $TOOLCHAIN_DIR
+          sudo tar --zstd -xf /tmp/hexagon-tc.tar.zst \
+            -C $TOOLCHAIN_DIR --strip-components=1
+          rm /tmp/hexagon-tc.tar.zst
+      - name: Build
+        run: |
+          TC=$TOOLCHAIN_DIR/x86_64-linux-gnu
+          cmake -G"Unix Makefiles" \
+            -DCMAKE_C_COMPILER=$TC/bin/hexagon-unknown-linux-musl-clang \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=hexagon \
+            -DCMAKE_CROSSCOMPILING=TRUE \
+            -DCMAKE_CROSSCOMPILING_EMULATOR="$TC/bin/qemu-hexagon;-L;$TC/target/hexagon-unknown-linux-musl" \
+            -DHVX_ARCH=65 \
+            -S . -B build
+          export NUMCPUS=$(nproc)
+          cmake --build build -j$NUMCPUS
+      - name: Test
+        run: |
+          cd build && ctest -j$(nproc)
