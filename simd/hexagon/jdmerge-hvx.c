@@ -26,6 +26,68 @@ range_limit(int val)
 }
 
 
+/* Compute chroma deltas for 64 Cb/Cr samples, producing r_add, g_sub,
+ * b_add as s16 vectors (64 elements each).
+ */
+static __inline void
+hvx_chroma_deltas(HVX_Vector cb_s16, HVX_Vector cr_s16,
+                  HVX_Vector *r_add, HVX_Vector *g_sub,
+                  HVX_Vector *b_add)
+{
+  HVX_Vector rnd14 = Q6_Vw_vsplat_R(1 << 13);
+  HVX_Vector rnd15 = Q6_Vw_vsplat_R(1 << 14);
+
+  /* r_add = (22971 * Cr + 8192) >> 14 */
+  HVX_VectorPair rp =
+    Q6_Ww_vmpy_VhRh(cr_s16, VMPY_CONST(F_1_402));
+  *r_add = Q6_Vh_vasr_VwVwR_sat(
+    Q6_Vw_vadd_VwVw(Q6_V_hi_W(rp), rnd14),
+    Q6_Vw_vadd_VwVw(Q6_V_lo_W(rp), rnd14), 14);
+
+  /* b_add = (29033 * Cb + 8192) >> 14 */
+  HVX_VectorPair bp =
+    Q6_Ww_vmpy_VhRh(cb_s16, VMPY_CONST(F_1_772));
+  *b_add = Q6_Vh_vasr_VwVwR_sat(
+    Q6_Vw_vadd_VwVw(Q6_V_hi_W(bp), rnd14),
+    Q6_Vw_vadd_VwVw(Q6_V_lo_W(bp), rnd14), 14);
+
+  /* g_sub = (11277 * Cb + 23401 * Cr + 16384) >> 15 */
+  HVX_VectorPair gcb =
+    Q6_Ww_vmpy_VhRh(cb_s16, VMPY_CONST(F_0_344));
+  HVX_VectorPair gcr =
+    Q6_Ww_vmpy_VhRh(cr_s16, VMPY_CONST(F_0_714));
+  HVX_Vector gs_lo = Q6_Vw_vadd_VwVw(
+    Q6_Vw_vadd_VwVw(Q6_V_lo_W(gcb), Q6_V_lo_W(gcr)), rnd15);
+  HVX_Vector gs_hi = Q6_Vw_vadd_VwVw(
+    Q6_Vw_vadd_VwVw(Q6_V_hi_W(gcb), Q6_V_hi_W(gcr)), rnd15);
+  *g_sub = Q6_Vh_vasr_VwVwR_sat(gs_hi, gs_lo, 15);
+}
+
+
+/* Apply chroma deltas to 128 Y pixels (two 64-element s16 halves)
+ * and produce packed u8 R, G, B vectors.
+ */
+static __inline void
+hvx_apply_chroma(HVX_Vector y_lo, HVX_Vector y_hi,
+                 HVX_Vector r_add_lo, HVX_Vector r_add_hi,
+                 HVX_Vector g_sub_lo, HVX_Vector g_sub_hi,
+                 HVX_Vector b_add_lo, HVX_Vector b_add_hi,
+                 HVX_Vector *v_r, HVX_Vector *v_g,
+                 HVX_Vector *v_b)
+{
+  HVX_Vector r_lo = Q6_Vh_vadd_VhVh(y_lo, r_add_lo);
+  HVX_Vector r_hi = Q6_Vh_vadd_VhVh(y_hi, r_add_hi);
+  HVX_Vector g_lo = Q6_Vh_vsub_VhVh(y_lo, g_sub_lo);
+  HVX_Vector g_hi = Q6_Vh_vsub_VhVh(y_hi, g_sub_hi);
+  HVX_Vector b_lo = Q6_Vh_vadd_VhVh(y_lo, b_add_lo);
+  HVX_Vector b_hi = Q6_Vh_vadd_VhVh(y_hi, b_add_hi);
+
+  *v_r = hvx_pack_u8(r_lo, r_hi);
+  *v_g = hvx_pack_u8(g_lo, g_hi);
+  *v_b = hvx_pack_u8(b_lo, b_hi);
+}
+
+
 /* Include inline routines for colorspace extensions. */
 
 #include "jdmrgext-hvx.c"
